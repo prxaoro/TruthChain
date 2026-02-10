@@ -25,16 +25,27 @@ export default function ReportPage() {
   const [loadingCredential, setLoadingCredential] = useState(false);
   const [credentialChecked, setCredentialChecked] = useState(false);
 
-  // Fetch credential when wallet connects
+  // Reset txStatus on mount so previous page's confirmed state doesn't show
+  useEffect(() => {
+    useStore.getState().setTxStatus('idle');
+    useStore.getState().setTxId(null);
+    useStore.getState().setError(null);
+  }, []);
+
+  // Fetch credential when wallet connects (skip if already in store)
   useEffect(() => {
     if (connected && !credentialChecked) {
+      if (credential) {
+        setCredentialChecked(true);
+        return;
+      }
       setLoadingCredential(true);
       fetchCredential().finally(() => {
         setLoadingCredential(false);
         setCredentialChecked(true);
       });
     }
-  }, [connected, credentialChecked, fetchCredential]);
+  }, [connected, credentialChecked, credential, fetchCredential]);
 
   const handleSubmit = async () => {
     if (!reportContent.trim() || !publicKey) return;

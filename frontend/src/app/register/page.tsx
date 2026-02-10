@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import { motion } from 'framer-motion';
 import { useAleo } from '@/hooks/useAleo';
@@ -16,11 +16,25 @@ const STATUS_STEPS: { key: TxStatus; label: string }[] = [
 ];
 
 export default function RegisterPage() {
-  const { publicKey, connected, registerInsider } = useAleo();
-  const { txStatus, txId, error } = useStore();
+  const { publicKey, connected, registerInsider, fetchCredential } = useAleo();
+  const { credential, txStatus, txId, error } = useStore();
 
   const [orgName, setOrgName] = useState('');
   const [roleName, setRoleName] = useState('');
+  const [registrationDone, setRegistrationDone] = useState(false);
+  const [loadingCredential, setLoadingCredential] = useState(false);
+  const [credentialChecked, setCredentialChecked] = useState(false);
+
+  // Check if user already has a credential
+  useEffect(() => {
+    if (connected && !credentialChecked) {
+      setLoadingCredential(true);
+      fetchCredential().finally(() => {
+        setLoadingCredential(false);
+        setCredentialChecked(true);
+      });
+    }
+  }, [connected, credentialChecked, fetchCredential]);
 
   const handleRegister = async () => {
     if (!orgName.trim() || !roleName.trim() || !publicKey) return;
@@ -29,7 +43,16 @@ export default function RegisterPage() {
     const roleHash = await hashToField(roleName.toLowerCase().trim());
     const credentialId = await generateId(publicKey);
 
+    // Store credential in zustand after registration so other pages can see it
+    useStore.getState().setCredential({
+      owner: publicKey,
+      org_hash: orgHash,
+      role_hash: roleHash,
+      credential_id: credentialId,
+    });
+
     await registerInsider(orgHash, roleHash, credentialId);
+    setRegistrationDone(true);
   };
 
   const isProcessing = txStatus !== 'idle' && txStatus !== 'confirmed' && txStatus !== 'failed';
@@ -59,7 +82,34 @@ export default function RegisterPage() {
                 Install <a href="https://www.leo.app/" target="_blank" rel="noopener noreferrer" className="text-green-400 hover:underline">Shield Wallet</a> and connect above
               </p>
             </div>
-          ) : txStatus === 'confirmed' ? (
+          ) : loadingCredential ? (
+            <div className="card p-8 text-center">
+              <div className="w-8 h-8 border-2 border-green-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-zinc-400">Checking for existing credential...</p>
+            </div>
+          ) : credential && !registrationDone ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="card p-8 glow-green"
+            >
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-full bg-green-400/20 flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-bold mb-2 text-green-400">Already Registered</h2>
+                <p className="text-zinc-400 mb-4">
+                  You already have an InsiderCredential in your wallet.
+                </p>
+                <div className="mt-6 flex justify-center gap-4">
+                  <a href="/report" className="btn-primary px-6 py-3">Submit a Report</a>
+                  <a href="/verify" className="btn-secondary px-6 py-3">Verify Credential</a>
+                </div>
+              </div>
+            </motion.div>
+          ) : (txStatus === 'confirmed' || registrationDone) && txStatus !== 'idle' ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}

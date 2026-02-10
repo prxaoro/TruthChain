@@ -22,15 +22,26 @@ export default function VerifyPage() {
   const [loadingCredential, setLoadingCredential] = useState(false);
   const [credentialChecked, setCredentialChecked] = useState(false);
 
+  // Reset txStatus on mount so previous page's confirmed state doesn't show
+  useEffect(() => {
+    useStore.getState().setTxStatus('idle');
+    useStore.getState().setTxId(null);
+    useStore.getState().setError(null);
+  }, []);
+
   useEffect(() => {
     if (connected && !credentialChecked) {
+      if (credential) {
+        setCredentialChecked(true);
+        return;
+      }
       setLoadingCredential(true);
       fetchCredential().finally(() => {
         setLoadingCredential(false);
         setCredentialChecked(true);
       });
     }
-  }, [connected, credentialChecked, fetchCredential]);
+  }, [connected, credentialChecked, credential, fetchCredential]);
 
   const handleVerify = async () => {
     const rawRecord = await getRawCredentialRecord();
