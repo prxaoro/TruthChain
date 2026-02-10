@@ -39,6 +39,12 @@ export default function Header() {
             <Link href="/verify" className="text-zinc-400 hover:text-green-400 transition-colors">
               Verify
             </Link>
+            <Link href="/reports" className="text-zinc-400 hover:text-green-400 transition-colors">
+              My Reports
+            </Link>
+            <Link href="/privacy" className="text-zinc-400 hover:text-green-400 transition-colors">
+              Privacy
+            </Link>
           </nav>
 
           <div className="flex items-center space-x-4">
