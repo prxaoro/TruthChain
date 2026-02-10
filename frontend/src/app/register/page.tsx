@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import Header from '@/components/Header';
 import { motion } from 'framer-motion';
 import { useAleo } from '@/hooks/useAleo';
@@ -104,8 +105,8 @@ export default function RegisterPage() {
                   You already have an InsiderCredential in your wallet.
                 </p>
                 <div className="mt-6 flex justify-center gap-4">
-                  <a href="/report" className="btn-primary px-6 py-3">Submit a Report</a>
-                  <a href="/verify" className="btn-secondary px-6 py-3">Verify Credential</a>
+                  <Link href="/report" className="btn-primary px-6 py-3">Submit a Report</Link>
+                  <Link href="/verify" className="btn-secondary px-6 py-3">Verify Credential</Link>
                 </div>
               </div>
             </motion.div>
@@ -131,8 +132,8 @@ export default function RegisterPage() {
                   </p>
                 )}
                 <div className="mt-6 flex justify-center gap-4">
-                  <a href="/report" className="btn-primary px-6 py-3">Submit a Report</a>
-                  <a href="/verify" className="btn-secondary px-6 py-3">Verify Credential</a>
+                  <Link href="/report" className="btn-primary px-6 py-3">Submit a Report</Link>
+                  <Link href="/verify" className="btn-secondary px-6 py-3">Verify Credential</Link>
                 </div>
               </div>
             </motion.div>
