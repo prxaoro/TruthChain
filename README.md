@@ -1,149 +1,152 @@
-# TruthChain
+# TruthChain — Anonymous Whistleblowing on Aleo
 
-**Zero-Knowledge Whistleblower Protection Platform**
+## Problem
 
-Cryptographically prove insider status. Submit evidence anonymously. Protect your identity with mathematics.
+Whistleblowers expose fraud, corruption, and safety violations — yet 83% face retaliation. Existing systems (email tips, web forms, SecureDrop) require trusting intermediaries with your identity. TruthChain eliminates trust entirely.
 
----
+## Why Privacy Matters
 
-## The Problem
+Zero-knowledge proofs let insiders prove organizational membership and submit reports without EVER revealing who they are — not to the public, not to the organization, not even on-chain. The blockchain only sees encrypted commitments and aggregate counters.
 
-Whistleblowers expose fraud, corruption, and safety violations that cost the public billions. Yet 83% face retaliation—job loss, legal threats, or worse. Current solutions like SecureDrop require trusting intermediaries with your identity.
+## What's Built (Wave 2)
 
-TruthChain eliminates trust entirely. Using zero-knowledge proofs on Aleo, insiders can prove they work at a company and submit evidence without revealing who they are. Not to the platform. Not to anyone.
+- Private InsiderCredential records (not public tx hashes like Wave 1)
+- Anonymous report submission with credential proof (consume + re-issue UTXO pattern)
+- Aggregate-only public dashboard (report count, average severity per org)
+- Shield/Leo Wallet integration with real on-chain transactions
+- Live demo on Vercel
+- Complete privacy model — no private data in finalize scope
 
----
+## Privacy Model
 
-## How It Works
+| Data | Storage | Visibility |
+|------|---------|------------|
+| Insider identity | Record (InsiderCredential) | **Private** — only the insider |
+| Organization & department | Record (InsiderCredential) — hashed | **Private** — only the insider |
+| Report content | Record (Report) — hashed | **Private** — only the reporter |
+| Report severity | Record (Report) | **Private** — only the reporter |
+| Total reports per org | Mapping (report_count) | Public — aggregate only |
+| Average severity per org | Mapping (severity_sum / report_count) | Public — aggregate only |
+| Whether an org has insiders | Mapping (org_registered) | Public — boolean only |
+
+### Trust Model
+
+- Credentials are self-issued (user claims insider status via ZK proof)
+- Reports are tied to credentials (proves they registered before reporting)
+- Nobody can see WHO registered or WHO reported
+- Only aggregate statistics are public
+- Credential ownership enforced by Aleo's record model (only owner can spend)
+
+## Wave 1 → Wave 2 Progress
+
+| Aspect | Wave 1 (16/50) | Wave 2 |
+|--------|----------------|--------|
+| Privacy | Broken — public tx hashes as credentials (0/10) | Fixed — private records, no finalize leaks |
+| Technical | Basic transitions (3/10) | Working program with consume/re-issue pattern |
+| UX | Good dark theme UI (6/10) | Preserved + improved with 5 focused pages |
+| Practicality | Strong concept (5/10) | Added privacy model documentation |
+| Novelty | Weak (2/10) | Genuine ZK privacy for whistleblowing |
+
+**Judge feedback from Wave 1:**
+> "Privacy model fundamentally broken. Anyone can see when register_insider is called onchain... anyone can copy the TX hash and use anyone else's credential."
+
+**How we fixed it:** Complete contract rewrite. All credentials and reports are now private records. Only aggregate counters (report_count, severity_sum) enter finalize scope. No addresses, no report content, no credential details are ever public.
+
+## Architecture
 
 ```
-WHISTLEBLOWER                              JOURNALIST
-     │                                          │
-     ▼                                          ▼
-┌─────────────┐                         ┌─────────────┐
-│ Leo Wallet  │                         │ Leo Wallet  │
-└──────┬──────┘                         └──────┬──────┘
-       │                                       │
-       │  1. Register (ZK proof of employment) │
-       │  2. Submit encrypted evidence ────────┼───►
-       │  3. Claim bounty reward ◄─────────────┤
-       │                                       │
-       ▼                                       ▼
-┌──────────────────────────────────────────────────────┐
-│              whistleblower_v1.aleo                   │
-│                                                      │
-│  PRIVATE:                    PUBLIC:                 │
-│  • Whistleblower identity    • Submission counts     │
-│  • Company name (hashed)     • Journalist reputation │
-│  • Document contents         • Bounty pool balance   │
-│  • Submission details        • Verification status   │
-└──────────────────────────────────────────────────────┘
+INSIDER                                    PUBLIC
+  │                                          │
+  ▼                                          ▼
+┌───────────────────────────────────────────────────────┐
+│                truthchain_v2.aleo                      │
+│                                                        │
+│  PRIVATE (Records):           PUBLIC (Mappings):       │
+│  ├─ InsiderCredential         ├─ report_count          │
+│  │  ├─ owner                  │  (org_hash → count)    │
+│  │  ├─ org_hash               ├─ severity_sum          │
+│  │  ├─ role_hash              │  (org_hash → sum)      │
+│  │  └─ credential_id          └─ org_registered        │
+│  └─ Report                       (org_hash → bool)     │
+│     ├─ owner                                           │
+│     ├─ report_hash                                     │
+│     ├─ org_hash                                        │
+│     ├─ severity                                        │
+│     └─ report_id                                       │
+└───────────────────────────────────────────────────────┘
+
+Transitions:
+1. register_insider → InsiderCredential (private record)
+2. submit_report → Report + re-issued InsiderCredential
+3. verify_credential → re-issued InsiderCredential
 ```
 
----
+## How to Test
 
-## Features
+1. Visit the live demo URL
+2. Install [Shield/Leo Wallet](https://www.leo.app/) browser extension
+3. Get testnet ALEO from faucet: https://faucet.aleo.org/
+4. **Register:** Go to `/register` → enter organization name → confirm transaction
+5. **Report:** Go to `/report` → enter report details and severity → confirm transaction
+6. **Dashboard:** Go to `/dashboard` → search for an organization → see aggregate stats
+7. **Verify:** Go to `/verify` → verify your credential → ZK proof generated
 
-**Anonymous Credentials**
-Zero-knowledge proof of employment. Prove you're an insider without revealing your name, department, or any identifying information.
+Check the Aleo Explorer to confirm no private data is visible in transactions.
 
-**End-to-End Encryption**
-AES-256-GCM encrypted submissions. Only the intended journalist can decrypt. The server only ever sees ciphertext.
+## Tech Stack
 
-**Bounty Rewards**
-Get paid for verified information without exposing your identity. Rewards are claimed through ZK proofs.
-
-**Verified Sources**
-Journalists receive cryptographic proof that sources are real insiders—not random actors or competitors.
-
-**Cross-Browser Sync**
-Submit from one device, receive on another. Encrypted messages sync automatically via API.
-
----
-
-## Technical Stack
-
-**Smart Contract**
-- Leo language on Aleo
-- 5 private record types
-- 8 state transitions
-- BHP256 hashing for company identifiers
-
-**Frontend**
-- Next.js 15 with App Router
-- TypeScript
-- Tailwind CSS
-- Framer Motion animations
-- Leo Wallet integration
-
-**Encryption**
-- AES-256-GCM for message content
-- Wallet-based key derivation
-- Zero metadata exposure
-
----
+- **Smart Contract:** Leo language on Aleo Testnet (`truthchain_v2.aleo`)
+- **Frontend:** Next.js, TypeScript, Tailwind CSS, Framer Motion
+- **Wallet:** Shield Wallet (`@demox-labs/aleo-wallet-adapter`)
+- **State:** Zustand
+- **Deployment:** Vercel (frontend), Aleo Testnet (contract)
 
 ## Quick Start
 
 ```bash
-# Clone and install
-git clone https://github.com/prxaoro/TruthChain.git
-cd TruthChain/frontend
+# Frontend
+cd frontend
 npm install
-
-# Run development server
 npm run dev
+
+# Smart contract
+cd contracts/truthchain_v2
+leo build
+leo deploy --network testnet
 ```
 
 **Requirements:**
 - Node.js 18+
-- [Leo Wallet](https://www.leo.app/) extension
+- [Shield/Leo Wallet](https://www.leo.app/) extension
 - Aleo testnet credits from [faucet](https://faucet.aleo.org/)
-
----
+- Leo CLI 3.4.0 (for contract deployment)
 
 ## Project Structure
 
 ```
 TruthChain/
 ├── contracts/
-│   └── whistleblower_v1/
-│       ├── src/main.leo       # Smart contract
-│       └── build/             # Compiled bytecode
+│   └── truthchain_v2/
+│       ├── src/main.leo          # Leo smart contract
+│       └── program.json
 ├── frontend/
-│   ├── src/app/
-│   │   ├── submit/            # Whistleblower interface
-│   │   ├── journalist/        # Journalist dashboard
-│   │   └── api/               # Message sync API
-│   └── src/lib/
-│       ├── aleo.ts            # Blockchain interactions
-│       └── encryption.ts      # AES-256-GCM
-└── scripts/
-    └── deploy.sh              # Deployment automation
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── page.tsx          # Landing page
+│   │   │   ├── register/         # Register as insider
+│   │   │   ├── report/           # Submit anonymous report
+│   │   │   ├── dashboard/        # Public aggregate stats
+│   │   │   └── verify/           # Verify credential
+│   │   ├── components/           # Wallet provider, header
+│   │   ├── hooks/useAleo.ts      # Contract interaction hook
+│   │   └── lib/                  # Helpers, network client
+│   └── package.json
+└── README.md
 ```
 
----
+## Links
 
-## Smart Contract
-
-**Program:** `whistleblower_v1.aleo`
-**Network:** Aleo Testnet
-
-| Record | Purpose |
-|--------|---------|
-| `InsiderCredential` | Anonymous proof of employment |
-| `SecureSubmission` | Encrypted leak with insider proof |
-| `JournalistCredential` | Reputation and verification count |
-| `BountyReward` | Claimable reward for verified leaks |
-| `VerificationToken` | Proof of submission verification |
-
----
-
-## Why Aleo?
-
-This application is only possible on a privacy-by-default blockchain. On Ethereum, every transaction is public—whistleblower identities would be exposed through wallet analysis. Aleo's zero-knowledge architecture keeps all sensitive data private while still allowing cryptographic verification.
-
----
+- Program: https://explorer.aleo.org/program/truthchain_v2.aleo
 
 ## License
 

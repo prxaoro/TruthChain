@@ -1,377 +1,238 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { useWallet } from '@demox-labs/aleo-wallet-adapter-react';
-import { Transaction, WalletAdapterNetwork, WalletNotConnectedError } from '@demox-labs/aleo-wallet-adapter-base';
-import { PROGRAM_ID, hashToField, generateSalt } from '@/lib/aleo';
+import { Transaction, WalletAdapterNetwork } from '@demox-labs/aleo-wallet-adapter-base';
+import { PROGRAM_ID } from '@/lib/aleo';
+import { useStore } from '@/store/useStore';
+import type { InsiderCredential, Report } from '@/types';
 
-export interface TransactionResult {
-  success: boolean;
-  transactionId?: string;
-  error?: string;
-  outputs?: any[];
-}
+const FEE_WITH_FINALIZE = 500_000;
+const FEE_SIMPLE = 350_000;
 
 export function useAleo() {
-  const { publicKey, requestTransaction, requestRecords, requestRecordPlaintexts, decrypt, connected, connecting } = useWallet();
-  const [loading, setLoading] = useState(false);
-  const [lastTxId, setLastTxId] = useState<string | null>(null);
+  const {
+    publicKey,
+    connected,
+    requestTransaction,
+    requestRecordPlaintexts,
+    requestRecords,
+    transactionStatus,
+  } = useWallet();
 
-  // Execute a transition on the whistleblower program
-  const executeTransition = useCallback(async (
-    transitionName: string,
+  const { setTxStatus, setTxId, setError, setCredential, setReports } = useStore();
+
+  // Execute a transition and poll for confirmation
+  const execute = useCallback(async (
+    functionName: string,
     inputs: string[],
-    fee: number = 500000 // 0.5 credits default fee
-  ): Promise<TransactionResult> => {
-    if (!publicKey) {
-      return { success: false, error: 'Wallet not connected' };
+    fee: number = FEE_WITH_FINALIZE,
+  ): Promise<string | null> => {
+    if (!publicKey || !requestTransaction) {
+      setError('Wallet not connected');
+      return null;
     }
 
-    if (!requestTransaction) {
-      return { success: false, error: 'Wallet does not support transactions' };
-    }
-
-    setLoading(true);
     try {
-      // Create the transaction
-      const aleoTransaction = Transaction.createTransaction(
+      setTxStatus('signing');
+      setError(null);
+
+      const tx = Transaction.createTransaction(
         publicKey,
         WalletAdapterNetwork.TestnetBeta,
         PROGRAM_ID,
-        transitionName,
+        functionName,
         inputs,
         fee,
-        false // not private fee
+        false,
       );
 
-      // Request wallet to sign and broadcast
-      const txId = await requestTransaction(aleoTransaction);
+      setTxStatus('proving');
+      const txId = await requestTransaction(tx);
+      setTxId(txId);
+      setTxStatus('broadcasting');
 
-      if (txId) {
-        setLastTxId(txId);
-        return {
-          success: true,
-          transactionId: txId,
-        };
+      // Poll for confirmation
+      if (transactionStatus) {
+        let attempts = 0;
+        const maxAttempts = 120;
+        await new Promise<void>((resolve) => {
+          const interval = setInterval(async () => {
+            try {
+              const status = await transactionStatus(txId);
+              if (status === 'Finalized' || status === 'Completed') {
+                clearInterval(interval);
+                setTxStatus('confirmed');
+                resolve();
+              } else if (status === 'Failed' || status === 'Rejected') {
+                clearInterval(interval);
+                setTxStatus('failed');
+                setError('Transaction was rejected by the network');
+                resolve();
+              }
+            } catch {
+              // keep polling
+            }
+            attempts++;
+            if (attempts >= maxAttempts) {
+              clearInterval(interval);
+              setTxStatus('confirmed');
+              resolve();
+            }
+          }, 5000);
+        });
       } else {
-        return { success: false, error: 'Transaction rejected or failed' };
+        setTxStatus('confirmed');
       }
-    } catch (error: any) {
-      console.error('Transaction error:', error);
-      return {
-        success: false,
-        error: error.message || 'Transaction failed',
-      };
-    } finally {
-      setLoading(false);
-    }
-  }, [publicKey, requestTransaction]);
 
-  // Register as insider
+      return txId;
+    } catch (err: unknown) {
+      setTxStatus('failed');
+      const message = err instanceof Error ? err.message : 'Transaction failed';
+      setError(message);
+      return null;
+    }
+  }, [publicKey, requestTransaction, transactionStatus, setTxStatus, setTxId, setError]);
+
   const registerInsider = useCallback(async (
-    companyName: string,
-    department: string,
-    seniority: number
-  ): Promise<TransactionResult> => {
-    if (!publicKey) {
-      return { success: false, error: 'Wallet not connected' };
-    }
+    orgHash: string,
+    roleHash: string,
+    credentialId: string,
+  ) => {
+    return execute('register_insider', [orgHash, roleHash, credentialId], FEE_WITH_FINALIZE);
+  }, [execute]);
 
-    try {
-      const companyHash = await hashToField(companyName.toLowerCase());
-      const departmentHash = await hashToField(department.toLowerCase());
-      const salt = generateSalt();
-
-      const inputs = [
-        companyHash,
-        departmentHash,
-        `${seniority}u8`,
-        salt,
-        publicKey
-      ];
-
-      return await executeTransition('register_insider', inputs, 1000000);
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
-  }, [publicKey, executeTransition]);
-
-  // Submit a leak
-  const submitLeak = useCallback(async (
-    insiderCredential: string, // JSON string of credential record
-    documentContent: string,
+  const submitReport = useCallback(async (
+    credentialRecord: string,
+    reportHash: string,
     severity: number,
-    recipientAddress: string
-  ): Promise<TransactionResult> => {
-    if (!publicKey) {
-      return { success: false, error: 'Wallet not connected' };
-    }
+    reportId: string,
+  ) => {
+    return execute('submit_report', [
+      credentialRecord,
+      reportHash,
+      `${severity}u8`,
+      reportId,
+    ], FEE_WITH_FINALIZE);
+  }, [execute]);
 
+  const verifyCredential = useCallback(async (credentialRecord: string) => {
+    return execute('verify_credential', [credentialRecord], FEE_SIMPLE);
+  }, [execute]);
+
+  // Parse a record plaintext string into a key-value object
+  const parseRecord = useCallback((plaintext: string): Record<string, string> | null => {
     try {
-      const documentHash = await hashToField(documentContent);
-      const salt = generateSalt();
+      if (typeof plaintext === 'object') return plaintext as unknown as Record<string, string>;
 
-      const inputs = [
-        insiderCredential,
-        documentHash,
-        `${severity}u8`,
-        recipientAddress,
-        salt
-      ];
+      const clean = plaintext.trim();
+      if (!clean.startsWith('{') || !clean.endsWith('}')) return null;
 
-      return await executeTransition('submit_leak', inputs, 1500000);
-    } catch (error: any) {
-      return { success: false, error: error.message };
+      const inner = clean.slice(1, -1).trim();
+      const result: Record<string, string> = {};
+      const pairs = inner.split(',').map(s => s.trim()).filter(Boolean);
+      for (const pair of pairs) {
+        const colonIdx = pair.indexOf(':');
+        if (colonIdx === -1) continue;
+        const key = pair.slice(0, colonIdx).trim();
+        let val = pair.slice(colonIdx + 1).trim();
+        // Remove .private/.public suffixes
+        val = val.replace(/\.(private|public)$/, '');
+        result[key] = val;
+      }
+      return result;
+    } catch {
+      return null;
     }
-  }, [publicKey, executeTransition]);
+  }, []);
 
-  // Register as journalist
-  const registerJournalist = useCallback(async (
-    publicationName: string
-  ): Promise<TransactionResult> => {
-    if (!publicKey) {
-      return { success: false, error: 'Wallet not connected' };
-    }
-
+  // Fetch all records and return raw strings
+  const fetchRawRecords = useCallback(async (): Promise<string[]> => {
+    if (!connected) return [];
     try {
-      const publicationHash = await hashToField(publicationName.toLowerCase());
-      const salt = generateSalt();
-
-      const inputs = [
-        publicationHash,
-        salt,
-        publicKey
-      ];
-
-      return await executeTransition('register_journalist', inputs, 1000000);
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
-  }, [publicKey, executeTransition]);
-
-  // Verify a submission (journalist only)
-  const verifySubmission = useCallback(async (
-    journalistCredential: string,
-    submission: string,
-    credibilityScore: number
-  ): Promise<TransactionResult> => {
-    if (!publicKey) {
-      return { success: false, error: 'Wallet not connected' };
-    }
-
-    try {
-      const inputs = [
-        journalistCredential,
-        submission,
-        `${credibilityScore}u8`
-      ];
-
-      return await executeTransition('verify_submission', inputs, 1200000);
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
-  }, [publicKey, executeTransition]);
-
-  // Fund bounty pool
-  const fundBountyPool = useCallback(async (
-    amount: number
-  ): Promise<TransactionResult> => {
-    if (!publicKey) {
-      return { success: false, error: 'Wallet not connected' };
-    }
-
-    try {
-      const inputs = [`${amount}u64`];
-      return await executeTransition('fund_bounty_pool', inputs, 800000);
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
-  }, [publicKey, executeTransition]);
-
-  // Claim bounty reward
-  const claimBounty = useCallback(async (
-    bountyReward: string
-  ): Promise<TransactionResult> => {
-    if (!publicKey) {
-      return { success: false, error: 'Wallet not connected' };
-    }
-
-    try {
-      const inputs = [bountyReward];
-      return await executeTransition('claim_bounty', inputs, 1000000);
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
-  }, [publicKey, executeTransition]);
-
-  // Get user's records from the program (basic info, no nonce)
-  const getUserRecords = useCallback(async (): Promise<any[]> => {
-    if (!publicKey || !requestRecords) {
-      return [];
-    }
-
-    try {
-      const records = await requestRecords(PROGRAM_ID);
-      return records || [];
-    } catch (error) {
-      console.error('Error fetching records:', error);
-      return [];
-    }
-  }, [publicKey, requestRecords]);
-
-  // Get user's records with FULL PLAINTEXT (including _nonce) - needed for transactions!
-  const getUserRecordPlaintexts = useCallback(async (): Promise<any[]> => {
-    if (!publicKey || !requestRecordPlaintexts) {
-      console.log('requestRecordPlaintexts not available, falling back to requestRecords');
-      return getUserRecords();
-    }
-
-    try {
-      console.log('Fetching record plaintexts for:', PROGRAM_ID);
-      const result = await requestRecordPlaintexts(PROGRAM_ID) as any;
-      console.log('Record plaintexts result:', result);
-
-      // Extract records array from various response formats
-      const records: any[] = result?.records || (Array.isArray(result) ? result : []);
-
-      // Map records to ensure plaintext is accessible
-      // requestRecordPlaintexts returns records with a 'plaintext' field containing the full record string
-      return records.map((record: any) => {
-        // If it's already a string (the plaintext itself), return as-is
-        if (typeof record === 'string') {
-          return record;
-        }
-        // If it has a plaintext field, preserve the whole record object with plaintext
-        if (record.plaintext) {
-          console.log('Found record with plaintext field:', record.plaintext.substring(0, 100) + '...');
-          return record;
-        }
-        return record;
+      let records: unknown[] = [];
+      if (requestRecordPlaintexts) {
+        try { records = await requestRecordPlaintexts(PROGRAM_ID); } catch { /* fallback */ }
+      }
+      if (records.length === 0 && requestRecords) {
+        try { records = await requestRecords(PROGRAM_ID); } catch { return []; }
+      }
+      return records.map((r: unknown) => {
+        if (typeof r === 'string') return r;
+        if (r && typeof r === 'object' && 'plaintext' in r) return (r as { plaintext: string }).plaintext;
+        return JSON.stringify(r);
       });
-    } catch (error: any) {
-      console.error('Error fetching record plaintexts:', error);
-      // Check if it's a permission error
-      if (error?.message?.includes('NOT_GRANTED') || error?.code === 'NOT_GRANTED') {
-        console.warn('Decrypt permission not granted. Trying to decrypt ciphertexts manually...');
-
-        // Try getting records and decrypting their ciphertexts
-        if (decrypt) {
-          try {
-            const basicRecords = await getUserRecords();
-            console.log('Basic records for manual decrypt:', JSON.stringify(basicRecords, null, 2));
-
-            // Check if records have ciphertext we can decrypt
-            const decryptedRecords = await Promise.all(
-              basicRecords.map(async (record: any) => {
-                if (record.ciphertext) {
-                  try {
-                    const plaintext = await decrypt(record.ciphertext);
-                    console.log('Decrypted record:', plaintext);
-                    return { ...record, plaintext };
-                  } catch (decryptError) {
-                    console.error('Failed to decrypt record:', decryptError);
-                    return record;
-                  }
-                }
-                return record;
-              })
-            );
-            return decryptedRecords;
-          } catch (decryptError) {
-            console.error('Manual decryption failed:', decryptError);
-          }
-        }
-      }
-      // Fallback to regular records
-      return getUserRecords();
+    } catch {
+      return [];
     }
-  }, [publicKey, requestRecordPlaintexts, getUserRecords, decrypt]);
+  }, [connected, requestRecordPlaintexts, requestRecords]);
 
-  // Get insider credential from records (with full plaintext for transactions)
-  const getInsiderCredential = useCallback(async (): Promise<any | null> => {
-    // Try to get records with plaintexts first (includes _nonce)
-    const records = await getUserRecordPlaintexts();
-    console.log('Looking for InsiderCredential in records:', records);
-
-    // Find InsiderCredential - could be plaintext string or parsed object
-    // IMPORTANT: Filter out spent records - they can't be used in transactions
-    const credential = records.find((r: any) => {
-      // Skip spent records - they can't be used
-      if (r.spent === true) {
-        console.log('Skipping spent record:', r.id || r.recordName);
-        return false;
-      }
-
-      // If it's a plaintext string, check for credential_id and company_hash
-      if (typeof r === 'string') {
-        return r.includes('credential_id') && r.includes('company_hash') && !r.includes('publication_hash');
-      }
-      // If it has a plaintext field (from requestRecordPlaintexts), check the plaintext
-      if (r.plaintext && typeof r.plaintext === 'string') {
-        return r.plaintext.includes('credential_id') && r.plaintext.includes('company_hash') && !r.plaintext.includes('publication_hash');
-      }
-      // If it's an object with data property
-      if (r.data && r.data.credential_id && r.data.company_hash && !r.data.publication_hash) {
-        return true;
-      }
-      // If it's an object with recordName property (from requestRecords)
-      if (r.recordName === 'InsiderCredential') {
-        return true;
-      }
-      // If it's a direct object (plaintext parsed)
-      if (r.credential_id && r.company_hash && !r.publication_hash) {
-        return true;
-      }
-      return false;
-    });
-
-    console.log('Found InsiderCredential:', credential);
-
-    // If we found a credential but it doesn't have plaintext, try to decrypt the ciphertext
-    if (credential && !credential.plaintext && credential.ciphertext && decrypt) {
-      console.log('Trying to decrypt record ciphertext...');
-      try {
-        const plaintext = await decrypt(credential.ciphertext);
-        console.log('Decrypted plaintext:', plaintext);
-        return { ...credential, plaintext };
-      } catch (err) {
-        console.error('Failed to decrypt ciphertext:', err);
+  // Fetch InsiderCredential from wallet
+  const fetchCredential = useCallback(async (): Promise<InsiderCredential | null> => {
+    const records = await fetchRawRecords();
+    for (const recStr of records) {
+      const parsed = parseRecord(recStr);
+      if (!parsed) continue;
+      // InsiderCredential has credential_id but NOT report_hash
+      if (parsed.credential_id && !parsed.report_hash) {
+        const credential: InsiderCredential = {
+          owner: parsed.owner || '',
+          org_hash: parsed.org_hash || '',
+          role_hash: parsed.role_hash || '',
+          credential_id: parsed.credential_id,
+          _nonce: parsed._nonce || '',
+        };
+        setCredential(credential);
+        return credential;
       }
     }
+    return null;
+  }, [fetchRawRecords, parseRecord, setCredential]);
 
-    return credential || null;
-  }, [getUserRecordPlaintexts, decrypt]);
+  // Fetch Report records from wallet
+  const fetchReports = useCallback(async (): Promise<Report[]> => {
+    const records = await fetchRawRecords();
+    const reports: Report[] = [];
+    for (const recStr of records) {
+      const parsed = parseRecord(recStr);
+      if (!parsed) continue;
+      if (parsed.report_hash && parsed.report_id) {
+        reports.push({
+          owner: parsed.owner || '',
+          report_hash: parsed.report_hash,
+          org_hash: parsed.org_hash || '',
+          severity: parsed.severity || '',
+          report_id: parsed.report_id,
+          _nonce: parsed._nonce || '',
+        });
+      }
+    }
+    setReports(reports);
+    return reports;
+  }, [fetchRawRecords, parseRecord, setReports]);
 
-  // Get journalist credential from records
-  const getJournalistCredential = useCallback(async (): Promise<any | null> => {
-    const records = await getUserRecords();
-    const credential = records.find(r =>
-      r.data && r.data.publication_hash && r.data.trust_score
-    );
-    return credential || null;
-  }, [getUserRecords]);
+  // Get raw credential record string for use as transition input
+  const getRawCredentialRecord = useCallback(async (): Promise<string | null> => {
+    const records = await fetchRawRecords();
+    for (const recStr of records) {
+      const parsed = parseRecord(recStr);
+      if (!parsed) continue;
+      if (parsed.credential_id && !parsed.report_hash) {
+        return recStr;
+      }
+    }
+    return null;
+  }, [fetchRawRecords, parseRecord]);
 
   return {
-    // State
-    address: publicKey,
+    publicKey,
     connected,
-    connecting,
-    loading,
-    lastTxId,
-
-    // Actions
+    execute,
     registerInsider,
-    submitLeak,
-    registerJournalist,
-    verifySubmission,
-    fundBountyPool,
-    claimBounty,
-    executeTransition,
-
-    // Records
-    getUserRecords,
-    getUserRecordPlaintexts,
-    getInsiderCredential,
-    getJournalistCredential,
+    submitReport,
+    verifyCredential,
+    fetchCredential,
+    fetchReports,
+    getRawCredentialRecord,
   };
 }

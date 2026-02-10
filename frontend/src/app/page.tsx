@@ -12,7 +12,6 @@ export default function Home() {
         {/* Hero Section */}
         <section className="min-h-screen flex items-center justify-center px-4 pt-16">
           <div className="max-w-6xl mx-auto text-center">
-            {/* Glitch effect title */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -38,22 +37,20 @@ export default function Home() {
               Prove you&apos;re an insider without revealing who you are.
             </motion.p>
 
-            {/* CTA Buttons */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5, duration: 0.8 }}
               className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
             >
-              <Link href="/submit" className="btn-primary text-lg px-8 py-4">
-                Submit Anonymous Leak
+              <Link href="/register" className="btn-primary text-lg px-8 py-4">
+                Register as Insider
               </Link>
-              <Link href="/journalist" className="btn-secondary text-lg px-8 py-4">
-                I&apos;m a Journalist
+              <Link href="/report" className="btn-secondary text-lg px-8 py-4">
+                Submit Report
               </Link>
             </motion.div>
 
-            {/* Stats */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -75,14 +72,13 @@ export default function Home() {
             </motion.div>
           </div>
 
-          {/* Animated background elements */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-green-500/5 rounded-full blur-3xl"></div>
             <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-green-500/5 rounded-full blur-3xl"></div>
           </div>
         </section>
 
-        {/* How It Works Section */}
+        {/* How It Works */}
         <section className="py-24 px-4">
           <div className="max-w-6xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-center mb-16">
@@ -90,7 +86,6 @@ export default function Home() {
             </h2>
 
             <div className="grid md:grid-cols-3 gap-8">
-              {/* Step 1 */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -102,12 +97,11 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-bold mb-4">Register as Insider</h3>
                 <p className="text-zinc-400">
-                  Create an anonymous credential proving you work at a company.
+                  Create an anonymous credential proving you work at an organization.
                   Your identity stays completely hidden using zero-knowledge proofs.
                 </p>
               </motion.div>
 
-              {/* Step 2 */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -118,14 +112,13 @@ export default function Home() {
                 <div className="w-12 h-12 rounded-lg bg-green-400/20 flex items-center justify-center mb-6">
                   <span className="text-2xl font-bold text-green-400">2</span>
                 </div>
-                <h3 className="text-xl font-bold mb-4">Submit Evidence</h3>
+                <h3 className="text-xl font-bold mb-4">Submit Anonymous Report</h3>
                 <p className="text-zinc-400">
-                  Upload encrypted documents and describe the wrongdoing.
-                  Only your chosen journalist can decrypt and view the evidence.
+                  Use your credential to submit a report. Your credential is consumed
+                  and re-issued — proving insider status without revealing identity.
                 </p>
               </motion.div>
 
-              {/* Step 3 */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -136,100 +129,72 @@ export default function Home() {
                 <div className="w-12 h-12 rounded-lg bg-green-400/20 flex items-center justify-center mb-6">
                   <span className="text-2xl font-bold text-green-400">3</span>
                 </div>
-                <h3 className="text-xl font-bold mb-4">Get Verified & Rewarded</h3>
+                <h3 className="text-xl font-bold mb-4">Public Accountability</h3>
                 <p className="text-zinc-400">
-                  Journalists verify your leak. Once verified, claim your bounty
-                  reward—all without ever revealing your identity.
+                  Only aggregate stats are public — report count and average severity per org.
+                  Individual reports and identities remain completely private.
                 </p>
               </motion.div>
             </div>
           </div>
         </section>
 
-        {/* Privacy Features */}
+        {/* Privacy Model */}
         <section className="py-24 px-4 bg-zinc-900/50">
           <div className="max-w-6xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
-              Unbreakable <span className="text-green-400">Privacy</span>
+              Privacy <span className="text-green-400">Model</span>
             </h2>
             <p className="text-zinc-400 text-center mb-16 max-w-2xl mx-auto">
-              Built on Aleo&apos;s zero-knowledge blockchain—the most advanced privacy
+              Built on Aleo&apos;s zero-knowledge blockchain — the most advanced privacy
               technology in existence.
             </p>
 
             <div className="grid md:grid-cols-2 gap-8">
               <div className="card p-8">
-                <div className="flex items-start space-x-4">
-                  <div className="w-10 h-10 rounded-lg bg-green-400/20 flex items-center justify-center flex-shrink-0">
-                    <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold mb-2">Zero-Knowledge Proofs</h3>
-                    <p className="text-zinc-400">
-                      Prove you&apos;re a Boeing engineer without revealing which one.
-                      Mathematical certainty, zero data exposure.
-                    </p>
-                  </div>
-                </div>
+                <h3 className="text-lg font-bold mb-4 text-green-400">PRIVATE (Records — only you see)</h3>
+                <ul className="space-y-3 text-zinc-400">
+                  <li className="flex items-start space-x-2">
+                    <span className="text-green-400 mt-1">&#x2713;</span>
+                    <span>Insider identity (who registered)</span>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="text-green-400 mt-1">&#x2713;</span>
+                    <span>Organization & department details</span>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="text-green-400 mt-1">&#x2713;</span>
+                    <span>Report content and severity</span>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="text-green-400 mt-1">&#x2713;</span>
+                    <span>Who reported what</span>
+                  </li>
+                </ul>
               </div>
 
               <div className="card p-8">
-                <div className="flex items-start space-x-4">
-                  <div className="w-10 h-10 rounded-lg bg-green-400/20 flex items-center justify-center flex-shrink-0">
-                    <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold mb-2">End-to-End Encryption</h3>
-                    <p className="text-zinc-400">
-                      Documents encrypted client-side. Only your chosen journalist
-                      can decrypt. Not even we can see your evidence.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="card p-8">
-                <div className="flex items-start space-x-4">
-                  <div className="w-10 h-10 rounded-lg bg-green-400/20 flex items-center justify-center flex-shrink-0">
-                    <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold mb-2">No IP Tracking</h3>
-                    <p className="text-zinc-400">
-                      All transactions happen on-chain with privacy by default.
-                      No server logs, no IP addresses, no metadata trails.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="card p-8">
-                <div className="flex items-start space-x-4">
-                  <div className="w-10 h-10 rounded-lg bg-green-400/20 flex items-center justify-center flex-shrink-0">
-                    <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold mb-2">Verifiable Without Revealing</h3>
-                    <p className="text-zinc-400">
-                      Journalists can verify your insider status and submission
-                      authenticity without ever learning your identity.
-                    </p>
-                  </div>
-                </div>
+                <h3 className="text-lg font-bold mb-4 text-zinc-400">PUBLIC (Mappings — everyone sees)</h3>
+                <ul className="space-y-3 text-zinc-400">
+                  <li className="flex items-start space-x-2">
+                    <span className="text-zinc-500 mt-1">&#x25CF;</span>
+                    <span>Total number of reports per org (aggregate)</span>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="text-zinc-500 mt-1">&#x25CF;</span>
+                    <span>Average severity per org (aggregate)</span>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="text-zinc-500 mt-1">&#x25CF;</span>
+                    <span>Whether an org has registered insiders</span>
+                  </li>
+                </ul>
               </div>
             </div>
           </div>
         </section>
 
-        {/* CTA Section */}
+        {/* CTA */}
         <section className="py-24 px-4">
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-3xl md:text-4xl font-bold mb-6">
@@ -238,9 +203,14 @@ export default function Home() {
             <p className="text-xl text-zinc-400 mb-8">
               Your identity is protected by mathematics, not promises.
             </p>
-            <Link href="/submit" className="btn-primary text-lg px-12 py-4">
-              Start Anonymous Submission
-            </Link>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link href="/register" className="btn-primary text-lg px-12 py-4">
+                Get Started
+              </Link>
+              <Link href="/dashboard" className="btn-secondary text-lg px-12 py-4">
+                View Dashboard
+              </Link>
+            </div>
           </div>
         </section>
 
@@ -257,7 +227,7 @@ export default function Home() {
                 <span className="font-bold">TruthChain</span>
               </div>
               <div className="text-zinc-500 text-sm">
-                Built on <span className="text-green-400">Aleo</span> | Privacy Buildathon 2026
+                Built on <span className="text-green-400">Aleo</span> | WaveHack 2026
               </div>
             </div>
           </div>
